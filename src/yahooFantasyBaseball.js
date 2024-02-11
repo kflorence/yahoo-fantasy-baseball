@@ -37,7 +37,7 @@ exports.yfbb = {
     return `${this.YAHOO}/league/${CONFIG.LEAGUE_KEY}/metadata`;
   },
   transactions() {
-    return `${this.YAHOO}/league/${CONFIG.LEAGUE_KEY}/transactions;types=add,trade,drop`;
+    return `${this.YAHOO}/league/${CONFIG.LEAGUE_KEY}/transactions;types=add,drop,trade`;
   },
   user() {
     return `${this.YAHOO}/users;use_login=1/games`;
@@ -47,6 +47,15 @@ exports.yfbb = {
   },
   roster() {
     return `${this.YAHOO}/team/${CONFIG.LEAGUE_KEY}.t.${CONFIG.TEAM}/roster/players`;
+  },
+  players(keys) {
+    return `${this.YAHOO}/league/${CONFIG.LEAGUE_KEY}/players;player_keys=${keys.join(',')}`
+  },
+  draftResults() {
+    return `${this.YAHOO}/league/${CONFIG.LEAGUE_KEY}/draftresults`
+  },
+  teams() {
+    return `${this.YAHOO}/league/${CONFIG.LEAGUE_KEY}/teams`
   },
 
   // Write to an external file to display output data
@@ -304,6 +313,50 @@ exports.yfbb = {
       return results.fantasy_content.team.roster.players;
     } catch (err) {
       console.error(`Error in getCurrentRoster(): ${err}`);
+      return err;
+    }
+  },
+
+  async getDraftResults() {
+    try {
+      const results = await this.makeAPIrequest(this.draftResults());
+      return results.fantasy_content.league.draft_results;
+    } catch (err) {
+      console.error(`Error in getDraftResults(): ${err}`);
+      return err;
+    }
+  },
+
+  async getPlayers(keys) {
+    try {
+      // Seems like it will only return a max of 25 at a time
+      const count = 25;
+      const promises = [];
+      const requestLimit = Math.ceil(keys.length / count)
+
+      for (let i = 0; i < requestLimit; i++) {
+        const reqKeys = keys.slice(i * count, (i + 1) * count)
+        const reqUrl = this.players(reqKeys);
+        promises.push(this.makeAPIrequest(reqUrl));
+      }
+      const completedPromises = await Promise.all(promises);
+      const results = [];
+      completedPromises.forEach((result) => {
+        results.push(...result.fantasy_content.league.players.player)
+      });
+      return results;
+    } catch (err) {
+      console.error(`Error in getPlayers(): ${err}`);
+      return err;
+    }
+  },
+
+  async getTeams() {
+    try {
+      const results = await this.makeAPIrequest(this.teams());
+      return results.fantasy_content.league.teams;
+    } catch (err) {
+      console.error(`Error in getTeams(): ${err}`);
       return err;
     }
   },
