@@ -19,7 +19,11 @@ const getData = async () => {
 
       // Group by team key
       draftResults.draft_result.forEach((result) => {
-        keepers[result.player_key] = { cost: Number(result.cost), ownerId: result.team_key }
+        keepers[result.player_key] = {
+          cost: Number(result.cost),
+          kept: true,
+          ownerId: result.team_key
+        }
       })
 
       // Oldest first
@@ -34,15 +38,19 @@ const getData = async () => {
             case 'add': {
               // Update cost to highest price paid
               keeper.cost = Math.max(keeper.cost ?? 0, transaction.faab_bid ?? 0)
+              keeper.kept = keeper.kept ?? false
+              // Update owner
               keeper.ownerId = player.transaction_data.destination_team_key
               break
             }
             case 'drop': {
-              // Reset owner
+              // Reset owner and kept status
+              keeper.kept = false
               keeper.ownerId = undefined
               break
             }
             case 'trade': {
+              // Update owner
               keeper.ownerId = player.transaction_data.destination_team_key
             }
           }
@@ -75,10 +83,16 @@ const getData = async () => {
         keeper.positions = player.display_position
       })
 
-      const finalKeepers = Object.fromEntries(Object.entries(keepers).sort((a, b) =>
+      const finalKeepers = Object.entries(keepers)
+        .map(([id, keeper]) => {
+          Object.assign(keeper, { id })
+          const result = {}
+          // Sort keys alphabetically
+          Object.keys(keeper).sort().forEach((key) => { result[key] = keeper[key] })
+          return result
+        })
         // Group by owner alphabetically
-        a[1].owner.localeCompare(b[1].owner))
-      )
+        .sort((a, b) => a.owner.localeCompare(b.owner))
 
       const data = JSON.stringify(finalKeepers);
 
